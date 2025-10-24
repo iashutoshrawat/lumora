@@ -2,6 +2,8 @@
 
 import Highcharts from "highcharts"
 import HighchartsReact from "highcharts-react-official"
+import exportingModule from "highcharts/modules/exporting"
+import offlineExportingModule from "highcharts/modules/offline-exporting"
 import type { Options, SeriesOptionsType, DashStyleValue, PointLabelObject, TooltipFormatterContextObject, Point } from "highcharts"
 import { useEffect, useMemo, useState } from "react"
 import { Palette, Download, Share2 } from "lucide-react"
@@ -16,6 +18,11 @@ interface ChartCanvasProps {
   agentRecommendations?: any
   onChartTypeChange?: (type: string) => void
   chartPlan?: ChartPlan | null
+}
+
+if (typeof window !== "undefined") {
+  exportingModule(Highcharts)
+  offlineExportingModule(Highcharts)
 }
 
 const FALLBACK_COLORS = ["#00BFFF", "#001F3F", "#FF6B6B", "#4ECDC4", "#45B7D1"]

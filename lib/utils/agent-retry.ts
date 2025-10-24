@@ -163,7 +163,9 @@ export async function retryAgentWithValidation<T>(
       } else {
         const error = 'Schema validation failed'
         console.error(`❌ [${agentName}] Attempt ${attempt} failed: ${error}`)
-        console.error(`Validation errors:`, validationResult.error.format())
+        console.error('Formatted errors:', JSON.stringify(validationResult.error.format(), null, 2))
+        console.error('Error issues:', validationResult.error.issues)
+        console.error('Issue count:', validationResult.error.issues.length)
 
         if (attempt < totalAttempts) {
           const waitTime = Math.pow(2, attempt - 1) * 1000
@@ -253,7 +255,10 @@ export function parseAndValidateAgentOutput<T>(
         attempts: 1
       }
     } else {
-      console.error(`❌ [${agentName}] Validation failed:`, validationResult.error.format())
+      console.error(`❌ [${agentName}] Validation failed:`)
+      console.error('Formatted errors:', JSON.stringify(validationResult.error.format(), null, 2))
+      console.error('Error issues:', validationResult.error.issues)
+      console.error('First 3 issues:', validationResult.error.issues.slice(0, 3))
       return {
         success: false,
         data: null,

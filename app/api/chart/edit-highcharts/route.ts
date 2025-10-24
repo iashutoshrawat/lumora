@@ -32,6 +32,7 @@ Return a JSON object with this structure:
 - Label changes: "Make labels bigger", "Show data labels"
 - Layout: "Make chart taller", "Add more spacing"
 - Grid lines: "Remove grid lines", "Show horizontal lines"
+- Axis ticks: "Add tick marks", "Make ticks longer" (use xAxis.tickLength / yAxis.tickLength etc.)
 
 **Complex edits** (fallback to full regeneration):
 - Chart type changes: "Convert to pie chart"
@@ -49,6 +50,9 @@ Return a JSON object with this structure:
 - "legend.enabled" → config.legend.enabled
 - "yAxis.plotLines" → config.yAxis.plotLines
 - "series.0.data" → config.series[0].data
+- "yAxis.gridLineWidth" → config.yAxis.gridLineWidth (set 0 to hide)
+- "xAxis.tickLength" → config.xAxis.tickLength (set positive integer to show ticks)
+- "yAxis.0.tickInterval" → config.yAxis[0].tickInterval
 
 ## Important Rules
 1. Be precise with paths - use exact property names
@@ -56,6 +60,8 @@ Return a JSON object with this structure:
 3. For complex edits, set editType: "complex" and minimal operations
 4. Always include explanation of what changed
 5. Use valid JSON values (strings, numbers, booleans, arrays, objects)
+6. For removing grid lines, set gridLineWidth to 0 (do not remove the axis)
+7. For showing tick marks, set tickLength (and optionally tickWidth/tickColor) to desired values
 `
 
 const CHART_EDITOR_PROMPT = `# Highcharts Chart Editor Agent
@@ -73,6 +79,7 @@ Your job is to understand the request and output the COMPLETE modified Highchart
 - "Change colors to blue theme" → Update colors array and series colors
 - "Add data labels" → Enable dataLabels in plotOptions.series
 - "Remove grid lines" → Set yAxis.gridLineWidth to 0
+- "Add tick marks" → Set xAxis.tickLength / yAxis.tickLength to desired length
 
 **Data Display:**
 - "Show only top 5" → Filter series data to top 5 points
@@ -84,6 +91,7 @@ Your job is to understand the request and output the COMPLETE modified Highchart
 - "Make chart taller" → Increase chart.height
 - "Add more spacing" → Increase chart.spacing values
 - "Move legend to bottom" → Change legend.verticalAlign and layout
+- "Adjust tick spacing" → Modify tickInterval / tickPositions on axes
 
 **Text/Labels:**
 - "Change title to..." → Update title.text

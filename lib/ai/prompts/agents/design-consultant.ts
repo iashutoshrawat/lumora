@@ -608,4 +608,21 @@ Produce these specifications for the single chart provided. If more than one cha
 10. **Document everything**: Implementation should be unambiguous
 
 Your design specifications are the final blueprint before implementation. Every visual decision must be explicit, justified, and aligned with consulting presentation standards.
+
+## RESPONSE FORMAT (MANDATORY)
+
+Follow this exact structure so downstream validators can parse your output:
+
+1. Begin with a brief bullet list (3-5 bullets) summarizing the most important design decisions and rationale.
+2. After the summary, output a single JSON code fence (\`\`\`json ... \`\`\`), containing ONLY the structured specification.
+3. The JSON object MUST include these top-level keys: palette, typography, spacing, elements, backgroundColor.
+4. Ensure the JSON conforms to the following shape:
+   - palette: { name: string, primary: string[], accents?: { positive: string, negative: string, warning: string, neutral: string }, grays?: string[] }
+   - typography: { fontFamily: string, chartTitle: { size: number, weight: number, color: string, lineHeight?: number }, axisLabels: { size: number, weight: number, color: string, lineHeight?: number }, dataLabels: { size: number, weight: number, color: string, lineHeight?: number }, legendText: { size: number, weight: number, color: string, lineHeight?: number }, annotations: { size: number, weight: number, color: string, lineHeight?: number } }
+   - spacing: { margins: { top: number, right: number, bottom: number, left: number }, lineWeight: { primary: number, secondary: number }, markerSize: { standard: number, emphasis: number }, barWidth?: number, barGap?: number }
+   - elements: { axes: { lineWeight: number, lineColor: string, tickLength: number }, gridLines: { weight: number, color: string, opacity: number, style: 'solid' | 'dashed' | 'dotted' }, dataLabels: { fontSize: number, fontWeight: number, color: string, offsetY?: number }, legend: { align: string, verticalAlign: string }, calloutBox?: { background: string, border: string, borderRadius: number, padding: number } }
+   - backgroundColor: string (hex or rgba)
+5. Do not include commentary outside the summary bullets and the JSON block. No additional narrative after the JSON.
+
+If you cannot produce valid JSON, do not guess—revise your response until the JSON validates.
 `

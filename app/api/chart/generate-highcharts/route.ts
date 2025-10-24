@@ -1,5 +1,5 @@
 import { openai } from '@ai-sdk/openai'
-import { generateObject } from 'ai'
+import { generateObject, NoObjectGeneratedError } from 'ai'
 import { HIGHCHARTS_GENERATOR_AGENT_PROMPT } from '@/lib/ai/prompts/agents/highcharts-generator'
 import { highchartsConfigSchema } from '@/lib/schemas/highcharts-schema'
 import type { ChartSpecification } from '@/lib/utils/chart-spec-parser'
@@ -12,6 +12,8 @@ import {
 } from '@/lib/utils/chart-spec-adapter'
 
 export const maxDuration = 30
+
+const MAX_ROWS_FOR_AGENT_CONTEXT = 24
 
 export async function POST(req: Request) {
   try {
@@ -75,76 +77,73 @@ export async function POST(req: Request) {
     const subtitle = chartSpec?.subtitle || `By ${xAxisLabel}. Source: [Data source], [Period]`
 
     // Build annotations summary
-    const annotationsSummary = resolvedVizStrategy.staticElements.annotations?.length > 0
-      ? resolvedVizStrategy.staticElements.annotations.map((anno: any) =>
-          `  - "${anno.text}" at position (${anno.x}, ${anno.y})`
-        ).join('\n')
-      : '  - None'
-
-    // Build reference lines summary
-    const referenceLinesSummary = resolvedVizStrategy.staticElements.referenceLines?.length > 0
-      ? resolvedVizStrategy.staticElements.referenceLines.map((line: any) =>
-          `  - ${line.label || 'Line'} at value ${line.value} (color: ${line.color || 'default'})`
-        ).join('\n')
-      : ''
+    const annotationCount = resolvedVizStrategy.staticElements.annotations?.length || 0
+    const referenceLineCount = resolvedVizStrategy.staticElements.referenceLines?.length || 0
+    const firstAnnotation = annotationCount > 0
+      ? resolvedVizStrategy.staticElements.annotations?.[0]?.text
+      : null
+    const firstReferenceLine = referenceLineCount > 0
+      ? resolvedVizStrategy.staticElements.referenceLines?.[0]
+      : null
 
     // Get data range
     const firstXValue = preparedData.rows[0]?.[preparedData.xKey]
     const lastXValue = preparedData.rows[preparedData.rows.length - 1]?.[preparedData.xKey]
-    const sampleDataPoint = preparedData.rows[0]
-      ? preparedData.series.map((s: any) => `${s.label || s.key}: ${sampleDataPoint[s.key]}`).join(', ')
-      : 'No data'
+    const firstRow = preparedData.rows[0]
 
-    const contextHeader = `
-# Highcharts Generation Request
+    const totalRowCount = preparedData.rows.length
+    const truncatedRows = totalRowCount > MAX_ROWS_FOR_AGENT_CONTEXT
+    const rowSampleForAgent = truncatedRows
+      ? preparedData.rows.slice(0, MAX_ROWS_FOR_AGENT_CONTEXT)
+      : preparedData.rows
 
-## Chart Overview
-- **Chart Type**: ${recommendation.chartType}
-- **Chart Title**: "${chartTitle}"
-- **Subtitle**: "${subtitle}"
-- **X-Axis**: ${xAxisLabel} (${preparedData.rows.length} data points)
-- **Y-Axis**: ${yAxisLabel}
-- **Series Displayed**: ${seriesNames} (${preparedData.series.length} total)
-- **Number Format**: ${dataFormat}
+    const categoriesForAgent = rowSampleForAgent.map((row: any) => row[preparedData.xKey])
+    const compactSeries = preparedData.series.map((s: any) => ({
+      key: s.key,
+      label: s.label,
+      color: s.color,
+      type: s.type,
+      data: rowSampleForAgent.map((row: any) => row[s.key]),
+    }))
 
-## Data Range
-- **X-Axis Values**: ${firstXValue} → ${lastXValue}
-- **Sample Data Point**: ${firstXValue} = ${sampleDataPoint}
+    const structuredPayloadForAgent = {
+      recommendation: recommendation
+        ? {
+            chartType: recommendation.chartType,
+            chartTitle: recommendation.chartTitle,
+            businessQuestion: recommendation.businessQuestion,
+            chartMapping: recommendation.chartMapping,
+          }
+        : null,
+      preparedData: {
+        xKey: preparedData.xKey,
+        categories: categoriesForAgent,
+        series: compactSeries,
+        rowCount: totalRowCount,
+        truncated: truncatedRows,
+      },
+      vizStrategy: {
+        staticElements: {
+          dataLabels: resolvedVizStrategy.staticElements.dataLabels && {
+            show: resolvedVizStrategy.staticElements.dataLabels.show,
+            format: resolvedVizStrategy.staticElements.dataLabels.format,
+          },
+          referenceLines: resolvedVizStrategy.staticElements.referenceLines,
+          annotations: resolvedVizStrategy.staticElements.annotations,
+          legend: resolvedVizStrategy.staticElements.legend,
+        },
+        powerpoint: resolvedVizStrategy.powerpoint,
+      },
+      design: {
+        palette: resolvedDesign.palette,
+        typography: resolvedDesign.typography,
+        spacing: resolvedDesign.spacing,
+        elements: resolvedDesign.elements,
+        backgroundColor: resolvedDesign.backgroundColor,
+      },
+    }
 
-## Annotations (Callouts on Chart)
-${annotationsSummary}
-
-## Static Elements (Critical for PowerPoint/PDF Export)
-- **Data Labels**: ${resolvedVizStrategy.staticElements.dataLabels?.show || 'all'} points labeled with format "${dataFormat}"
-- **Reference Lines**: ${resolvedVizStrategy.staticElements.referenceLines?.length || 0} benchmark line(s)
-${referenceLinesSummary}
-- **Legend**: ${resolvedVizStrategy.staticElements.legend?.show ? `Visible at ${resolvedVizStrategy.staticElements.legend.position}` : 'Hidden (using direct labeling)'}
-- **Tooltips**: Disabled (static chart for export)
-
-## Design Specifications
-- **Color Palette**: ${resolvedDesign.palette.name}
-- **Primary Colors**: ${resolvedDesign.palette.primary.slice(0, 3).join(', ')}
-- **Typography**: Title ${resolvedDesign.typography.chartTitle.size}px (weight ${resolvedDesign.typography.chartTitle.weight}), Axis labels ${resolvedDesign.typography.axisLabels.size}px
-- **Spacing**: Margins ${resolvedDesign.spacing.margins.top}/${resolvedDesign.spacing.margins.right}/${resolvedDesign.spacing.margins.bottom}/${resolvedDesign.spacing.margins.left}px
-
-## Export Settings
-- **Dimensions**: ${resolvedVizStrategy.powerpoint.chartDimensions.width}×${resolvedVizStrategy.powerpoint.chartDimensions.height}px
-- **DPI**: ${resolvedVizStrategy.powerpoint.exportDPI} (scale: ${resolvedVizStrategy.powerpoint.exportDPI / 96})
-- **Target**: PowerPoint/PDF static export (no browser interactivity needed)
-
-## Complete Structured Data
-\`\`\`json
-${JSON.stringify({
-  recommendation,
-  preparedData,
-  chartSpec: chartSpec ?? null,
-  vizStrategy: resolvedVizStrategy,
-  design: resolvedDesign
-}, null, 2)}
-\`\`\`
-
-Generate a complete Highcharts configuration that implements this specification exactly.
-`
+    const contextHeader = JSON.stringify(structuredPayloadForAgent)
 
     // Call Highcharts Generator Agent with structured output
     console.log('🎨 Calling Highcharts Generator Agent with hybrid prompt...')
@@ -155,6 +154,9 @@ Generate a complete Highcharts configuration that implements this specification 
       system: HIGHCHARTS_GENERATOR_AGENT_PROMPT,
       prompt: contextHeader,
       temperature: 0.2,
+      mode: 'json',
+      maxOutputTokens: 12000,
+      maxRetries: 2,
     })
 
     console.log('✅ Highcharts Generator Agent completed successfully')
@@ -192,7 +194,15 @@ Generate a complete Highcharts configuration that implements this specification 
     )
 
   } catch (error) {
-    console.error('Highcharts generation error:', error)
+    if (NoObjectGeneratedError.isInstance(error)) {
+      console.error('Highcharts generation error: model returned invalid JSON', {
+        finishReason: error.finishReason,
+        usage: error.usage,
+        preview: error.text?.slice(0, 500),
+      })
+    } else {
+      console.error('Highcharts generation error:', error)
+    }
     return new Response(
       JSON.stringify({
         error: 'Failed to generate Highcharts configuration',

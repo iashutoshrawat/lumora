@@ -8,7 +8,7 @@ const columnAnalysisSchema = z.object({
   name: z.string(),
   type: z.enum(['dimension', 'measure', 'temporal', 'identifier']),
   dataType: z.enum(['string', 'number', 'date', 'boolean']),
-  role: z.enum(['categorical', 'numerical', 'temporal', 'implicitDimension', 'identifier']),
+  role: z.enum(['categorical', 'numerical', 'temporal', 'implicitDimension', 'identifier', 'measure']), // Add 'measure' to match agent output
   description: z.string(),
 })
 
@@ -52,7 +52,7 @@ const dataAnalysisSchema = z.object({
   keyDimensions: z.array(z.string()),
   keyMeasures: z.array(z.string()),
   temporalGranularity: z.enum(['daily', 'weekly', 'monthly', 'quarterly', 'yearly', 'none']),
-  estimatedCardinality: z.record(z.string(), z.enum(['low', 'medium', 'high'])).optional(),
+  estimatedCardinality: z.record(z.string(), z.string()).optional(), // Accept descriptive strings like "medium (10-50)"
   analyticalOpportunities: z.array(z.string()).optional(),
 })
 
@@ -100,13 +100,20 @@ const nextAgentGuidanceSchema = z.object({
   designConsultant: z.string().optional(),
 })
 
+const INSIGHT_TYPES = ['trend', 'comparison', 'composition', 'distribution', 'relationship', 'performance'] as const
+
+const insightTypeSchema = z
+  .string()
+  .transform((value) => value.split('|')[0].trim().toLowerCase())
+  .pipe(z.enum(INSIGHT_TYPES))
+
 const chartRecommendationSchema = z.object({
   priority: z.number(),
   chartType: z.string(),
   chartVariant: z.string().optional(),
   businessQuestion: z.string(),
   chartTitle: z.string(),
-  insightType: z.enum(['trend', 'comparison', 'composition', 'distribution', 'relationship', 'performance']),
+  insightType: insightTypeSchema,
   dataPreparation: dataPreparationSchema,
   chartMapping: chartMappingSchema,
   expectedInsight: z.string().optional(),
@@ -114,7 +121,7 @@ const chartRecommendationSchema = z.object({
   analyticalConsiderations: z.array(z.string()).optional(),
   alternativeCharts: z.array(alternativeChartSchema).optional(),
   dashboardRole: z.enum(['primary', 'secondary', 'supporting']).optional(),
-  targetAudience: z.enum(['executives', 'analysts', 'operational']).optional(),
+  targetAudience: z.string().optional(), // Accept multi-value strings like "executives | analysts"
   nextAgentGuidance: nextAgentGuidanceSchema.optional(),
 })
 
@@ -211,8 +218,8 @@ const powerpointConfigSchema = z.object({
 })
 
 export const vizStrategistOutputSchema = z.object({
-  staticElements: staticElementsSchema,
-  powerpoint: powerpointConfigSchema,
+  staticElements: staticElementsSchema.optional(),
+  powerpoint: powerpointConfigSchema.optional(),
   subtitle: z.string().optional(),
   footnotes: z.array(z.string()).optional(),
   source: z.string().optional(),
@@ -232,27 +239,27 @@ const colorAccentsSchema = z.object({
 })
 
 const paletteSchema = z.object({
-  name: z.string(),
-  primary: z.array(z.string()),
+  name: z.string().optional(),
+  primary: z.array(z.string()).optional(),
   accents: colorAccentsSchema.optional(),
   grays: z.array(z.string()).optional(),
 })
 
 const typographyElementSchema = z.object({
-  size: z.number(),
-  weight: z.number(),
-  color: z.string(),
+  size: z.number().optional(),
+  weight: z.number().optional(),
+  color: z.string().optional(),
   lineHeight: z.number().optional(),
   fontFamily: z.string().optional(),
 })
 
 const typographySchema = z.object({
-  fontFamily: z.string(),
-  chartTitle: typographyElementSchema,
-  axisLabels: typographyElementSchema,
-  dataLabels: typographyElementSchema,
-  legendText: typographyElementSchema,
-  annotations: typographyElementSchema,
+  fontFamily: z.string().optional(),
+  chartTitle: typographyElementSchema.optional(),
+  axisLabels: typographyElementSchema.optional(),
+  dataLabels: typographyElementSchema.optional(),
+  legendText: typographyElementSchema.optional(),
+  annotations: typographyElementSchema.optional(),
 })
 
 const marginsSchema = z.object({
@@ -263,69 +270,69 @@ const marginsSchema = z.object({
 })
 
 const lineWeightSchema = z.object({
-  primary: z.number(),
-  secondary: z.number(),
+  primary: z.number().optional(),
+  secondary: z.number().optional(),
 })
 
 const markerSizeSchema = z.object({
-  standard: z.number(),
-  emphasis: z.number(),
+  standard: z.number().optional(),
+  emphasis: z.number().optional(),
 })
 
 const spacingSchema = z.object({
-  margins: marginsSchema,
-  lineWeight: lineWeightSchema,
-  markerSize: markerSizeSchema,
-  barWidth: z.number().optional(),
-  barGap: z.number().optional(),
+  margins: marginsSchema.optional(),
+  lineWeight: lineWeightSchema.optional(),
+  markerSize: markerSizeSchema.optional(),
+  barWidth: z.number().nullable().optional(),
+  barGap: z.number().nullable().optional(),
 })
 
 const axesStyleSchema = z.object({
-  lineWeight: z.number(),
-  lineColor: z.string(),
-  tickLength: z.number(),
+  lineWeight: z.number().optional(),
+  lineColor: z.string().optional(),
+  tickLength: z.number().optional(),
 })
 
 const gridLinesStyleSchema = z.object({
-  weight: z.number(),
-  color: z.string(),
-  opacity: z.number(),
-  style: z.enum(['solid', 'dashed', 'dotted']),
+  weight: z.number().optional(),
+  color: z.string().optional(),
+  opacity: z.number().optional(),
+  style: z.enum(['solid', 'dashed', 'dotted']).optional(),
 })
 
 const dataLabelsStyleSchema = z.object({
-  fontSize: z.number(),
-  fontWeight: z.number(),
-  color: z.string(),
+  fontSize: z.number().optional(),
+  fontWeight: z.number().optional(),
+  color: z.string().optional(),
   offsetY: z.number().optional(),
 })
 
 const legendStyleSchema = z.object({
-  align: z.string(),
-  verticalAlign: z.string(),
+  align: z.string().optional(),
+  verticalAlign: z.string().optional(),
 })
 
 const calloutBoxStyleSchema = z.object({
-  background: z.string(),
-  border: z.string(),
-  borderRadius: z.number(),
-  padding: z.number(),
+  background: z.string().optional(),
+  border: z.string().optional(),
+  borderRadius: z.number().optional(),
+  padding: z.number().optional(),
 })
 
 const elementsSchema = z.object({
-  axes: axesStyleSchema,
-  gridLines: gridLinesStyleSchema,
-  dataLabels: dataLabelsStyleSchema,
-  legend: legendStyleSchema,
+  axes: axesStyleSchema.optional(),
+  gridLines: gridLinesStyleSchema.optional(),
+  dataLabels: dataLabelsStyleSchema.optional(),
+  legend: legendStyleSchema.optional(),
   calloutBox: calloutBoxStyleSchema.optional(),
 })
 
 export const designConsultantOutputSchema = z.object({
-  palette: paletteSchema,
-  typography: typographySchema,
-  spacing: spacingSchema,
-  elements: elementsSchema,
-  backgroundColor: z.string(),
+  palette: paletteSchema.optional(),
+  typography: typographySchema.optional(),
+  spacing: spacingSchema.optional(),
+  elements: elementsSchema.optional(),
+  backgroundColor: z.string().optional(),
 })
 
 export type DesignConsultantOutput = z.infer<typeof designConsultantOutputSchema>

@@ -3,7 +3,9 @@
 import { MoreVertical, Copy, Trash2, Download } from "lucide-react"
 import Highcharts from "highcharts"
 import HighchartsReact from "highcharts-react-official"
-import { useRef, useState } from "react"
+import exportingModule from "highcharts/modules/exporting"
+import offlineExportingModule from "highcharts/modules/offline-exporting"
+import { useMemo, useRef, useState } from "react"
 
 interface ChartCardProps {
   chart: {
@@ -19,6 +21,12 @@ interface ChartCardProps {
   onDelete: () => void
 }
 
+// Ensure exporting modules are initialized on the client before rendering charts
+if (typeof window !== "undefined") {
+  exportingModule(Highcharts)
+  offlineExportingModule(Highcharts)
+}
+
 export default function ChartCard({
   chart,
   isSelected,
@@ -29,9 +37,71 @@ export default function ChartCard({
   const chartRef = useRef<HighchartsReact.RefObject>(null)
   const [showActions, setShowActions] = useState(false)
 
+  const baseConfig = useMemo(() => {
+    if (typeof chart.highchartsConfig === "string") {
+      try {
+        return JSON.parse(chart.highchartsConfig)
+      } catch (error) {
+        console.error("Failed to parse Highcharts config string", error)
+        return {}
+      }
+    }
+    return chart.highchartsConfig || {}
+  }, [chart.highchartsConfig])
+
+  const previewOptions = useMemo(() => {
+    const config = typeof chart.highchartsConfig === "string"
+      ? (() => {
+          try {
+            return JSON.parse(chart.highchartsConfig)
+          } catch (error) {
+            console.error("Failed to parse Highcharts config string", error)
+            return {}
+          }
+        })()
+      : chart.highchartsConfig || {}
+
+    return {
+      ...config,
+      chart: {
+        ...config.chart,
+        height: null,
+        animation: false
+      },
+      credits: {
+        enabled: false,
+        ...(config.credits || {})
+      },
+      exporting: {
+        ...(config.exporting || {}),
+        enabled: true,
+        fallbackToExportServer: false,
+        buttons: {
+          ...(config.exporting?.buttons || {}),
+          contextButton: {
+            ...(config.exporting?.buttons?.contextButton || {}),
+            enabled: false
+          }
+        }
+      }
+    }
+  }, [chart.highchartsConfig])
+
   const handleExport = () => {
-    if (chartRef.current?.chart) {
-      chartRef.current.chart.exportChart({ type: 'image/png' })
+    const chartInstance = chartRef.current?.chart
+    if (!chartInstance) {
+      console.warn("Highcharts instance not available for export.")
+      return
+    }
+
+    if (typeof chartInstance.exportChartLocal === "function") {
+      chartInstance.exportChartLocal({ type: "image/png" })
+    } else if (typeof chartInstance.exportChart === "function") {
+      chartInstance.exportChart({ type: "image/png" }, undefined, undefined, {
+        fallbackToExportServer: false
+      })
+    } else {
+      console.warn("Highcharts export module is not available on this chart instance.")
     }
   }
 
@@ -127,16 +197,7 @@ export default function ChartCard({
           <div className="relative w-full" style={{ aspectRatio: '16/10' }}>
             <HighchartsReact
               highcharts={Highcharts}
-              options={{
-                ...chart.highchartsConfig,
-                chart: {
-                  ...chart.highchartsConfig.chart,
-                  height: null,
-                  animation: false
-                },
-                credits: { enabled: false },
-                exporting: { enabled: false }
-              }}
+              options={previewOptions}
               ref={chartRef}
               containerProps={{ className: 'w-full h-full' }}
             />

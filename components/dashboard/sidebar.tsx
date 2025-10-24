@@ -44,7 +44,10 @@ export default function Sidebar({ isOpen, onToggle }: SidebarProps) {
         onMouseLeave={() => setIsHovered(false)}
       >
         {/* Logo Area */}
-        <div className="px-4 py-5 border-b border-gray-100 flex items-center justify-center">
+        <Link
+          href="/"
+          className="px-4 py-5 border-b border-gray-100 flex items-center justify-center"
+        >
           <div className="flex items-center gap-3 overflow-hidden">
             <div
               className={`w-8 h-8 bg-gradient-to-br from-blue-600 to-blue-500 rounded-lg flex items-center justify-center transition-all duration-200 flex-shrink-0 ${
@@ -61,7 +64,7 @@ export default function Sidebar({ isOpen, onToggle }: SidebarProps) {
               Lumora
             </span>
           </div>
-        </div>
+        </Link>
 
         {/* Navigation */}
         <nav className="flex-1 px-3 py-4">

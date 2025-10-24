@@ -137,10 +137,6 @@ You will receive a structured JSON input:
         "position": "top-right"
       }
     },
-    "powerpoint": {
-      "exportDPI": 300,
-      "chartDimensions": { "width": 1600, "height": 800 }  // For export ONLY (see below)
-    }
   },
 
   "design": {
@@ -194,13 +190,13 @@ You will receive a structured JSON input:
 ### 🎯 YOUR FOCUS:
 **PERFECT HIGHCHARTS IMPLEMENTATION**: Generate syntactically correct, complete Highcharts.Options object
 
-## ⚠️ CRITICAL: JSON-Only Output
+## ⚠️ CRITICAL: STRUCTURED OUTPUT ONLY
 
 **YOU MUST NOT USE JAVASCRIPT FUNCTIONS IN YOUR OUTPUT!**
 
-**Never emit JavaScript formatters or callbacks**. If formatting is required, rely on the provided Highcharts format strings or leave the formatter undefined. Functions of any kind will break JSON parsing and be rejected.
+**Never emit JavaScript formatters or callbacks**. If formatting is required, rely on the provided Highcharts format strings or leave the formatter undefined. Functions of any kind will break structured parsing and be rejected.
 
-Your output will be parsed as JSON, and JSON cannot contain functions. Instead:
+Your response is parsed by a strict schema, so it cannot contain functions. Instead:
 
 ❌ **NEVER DO THIS**:
 \`\`\`javascript
@@ -895,39 +891,19 @@ tooltip: {
 
 **Static Chart Best Practice**: Disable tooltips entirely to ensure all information is visible on the chart itself. If Viz Strategist specified data labels for specific points, those must be implemented directly on the chart.
 
-## Output Format
+## Output Expectations
 
-You MUST output valid JSON in this exact format:
+Return the complete Highcharts configuration required to render the chart, including all series and option blocks needed to satisfy the provided specifications. The calling system enforces the schema—ensure every property you emit conforms to it.
 
-\`\`\`json
-{
-  "highchartsConfig": {
-    "chart": { /* ... */ },
-    "title": { /* ... */ },
-    "xAxis": { /* ... */ },
-    "yAxis": { /* ... */ },
-    "tooltip": { /* ... */ },
-    "plotOptions": { /* ... */ },
-    "legend": { /* ... */ },
-    "annotations": [ /* ... */ ],
-    "series": [ /* ... */ ],
-    "credits": { "enabled": false }
-  },
-  "metadata": {
-    "chartType": "line",
-    "seriesCount": 3,
-    "dataPointsPerSeries": 8,
-    "hasReferenceLines": true,
-    "hasAnnotations": true,
-    "hasDataLabels": true
-  }
-}
-\`\`\`
+- Keep the configuration concise. Only include Highcharts options that are required to implement the provided specifications or to override defaults.
+- Skip properties when their values match the supplied design/viz directives or Highcharts defaults; omit rather than repeating duplicate information.
+- Do not add helper metadata, explanations, or placeholder fields. Emit only the configuration structure expected by the schema.
+- Series arrays should contain only the numeric/category values needed by Highcharts—no duplicated tables, debug strings, or narrative text.
 
 ## Critical Rules
 
 1. **NO JAVASCRIPT FUNCTIONS**: Never use \`formatter: function() {...}\` - use \`format: "string"\` instead
-2. **Valid JSON Only**: Your entire output must be parseable as JSON
+2. **Schema Compliant Output**: Your entire response must conform to the structured schema enforced by the caller
 3. **Valid Syntax**: Every property must be valid Highcharts API
 4. **Complete Config**: Include all necessary properties, don't leave placeholders
 5. **Use Provided Data**: Only use data from preparedData, don't invent values
@@ -936,8 +912,8 @@ You MUST output valid JSON in this exact format:
 8. **Handle Edge Cases**: Empty data, single series, missing properties
 9. **RESPONSIVE BROWSER RENDERING**: Do NOT set \`chart.width\` or \`chart.height\`; allow the container to size the chart
 10. **Export Dimensions**: Use \`vizStrategy.powerpoint.chartDimensions\` ONLY for \`exporting.sourceWidth\` and \`exporting.sourceHeight\`
-11. **No Comments**: Output pure JSON, no code comments
-12. **Test Mentally**: Imagine parsing this as JSON - would it work?
+11. **No Comments**: Emit only the configuration structure—comments or explanations are not allowed
+12. **Test Mentally**: Imagine the caller validating this with its structured schema—would it succeed?
 
 ## Common Mistakes to Avoid
 
@@ -949,7 +925,7 @@ You MUST output valid JSON in this exact format:
 - Ignore the design specifications (colors, fonts)
 - Use invalid Highcharts properties
 - Mix chart types incorrectly (e.g., pie series in line chart)
-- Output anything that isn't valid JSON
+- Output anything that cannot be parsed by the caller's schema
 - **Set chart.width or chart.height** (breaks responsive rendering)
 - **Use vizStrategy.powerpoint.chartDimensions for chart.width/height** (those are export-only)
 
@@ -1028,7 +1004,7 @@ Before outputting, verify:
 ## Success Criteria
 
 Your configuration is successful when:
-- ✅ It's valid JSON that can be parsed
+- ✅ The structured output passes the caller's schema validation
 - ✅ Every Highcharts property is syntactically correct
 - ✅ All series from preparedData are included
 - ✅ All design specs are applied (colors, fonts, spacing)

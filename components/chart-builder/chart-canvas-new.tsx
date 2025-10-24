@@ -2,6 +2,8 @@
 
 import Highcharts from "highcharts"
 import HighchartsReact from "highcharts-react-official"
+import exportingModule from "highcharts/modules/exporting"
+import offlineExportingModule from "highcharts/modules/offline-exporting"
 import { useMemo } from "react"
 import { Palette, Download, Share2 } from "lucide-react"
 import { formatCurrency, formatLargeNumber, formatPercentage } from "@/lib/utils/number-formatter"
@@ -10,6 +12,11 @@ interface ChartCanvasNewProps {
   highchartsConfig: any
   chartType: string
   onChartTypeChange?: (type: string) => void
+}
+
+if (typeof window !== "undefined") {
+  exportingModule(Highcharts)
+  offlineExportingModule(Highcharts)
 }
 
 export default function ChartCanvasNew({
